@@ -149,7 +149,7 @@ The earliest unique process ID of enumeration was "2533274790397065". This is he
 
 ## Persistence Mechanism
 
-To ensure continued access, the actor established persistence using a scheduled task.
+To ensure continued access, the actor established process enumeration using a scheduled task.
 ```kql
 DeviceProcessEvents
 | where TimeGenerated between (datetime(2025-10-01) .. datetime(2025-10-15))
@@ -252,7 +252,7 @@ DeviceProcessEvents
 | project TimeGenerated, ProcessCommandLine, InitiatingProcessFileName
 | sort by TimeGenerated asc
 ```
-The task name found was SupportToolUpdater.ps1. The task name mimics legitimate administrative tooling, reinforcing the broader theme of masquerading. Logon-triggered execution ensures the actor’s tooling persists across sessions without requiring additional user interaction.
+The task name found was SupportToolUpdater. The task name mimics legitimate administrative tooling, reinforcing the broader theme of masquerading. Logon-triggered execution ensures the actor’s tooling persists across sessions without requiring additional user interaction.
 <img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag13.png">
 
 ## Planted Narrative Artifact
@@ -276,11 +276,22 @@ The investigation identified a clear progression: execution of an unsigned Power
 This hunt highlights how attackers can rely on plausibility, sequence, and human misdirection—rather than overt exploitation—to blend into enterprise environments. The findings reinforce the importance of timeline-based threat hunting and contextual analysis when evaluating seemingly benign activity.
 
 ---
+## High-Level Timeline
+
+| Phase | Key Activity |
+|------|-------------|
+| Initial Access | SupportTool.ps1 executed from Downloads |
+| Recon | Clipboard, session, storage enumeration |
+| Staging | ReconArtifact.zip created |
+| Egress Prep | msftconnecttest.com connectivity check |
+| Persistence | Scheduled task `SupportToolUpdater` |
+| Cover | SupportChat_log.lnk placed |
+---
 
 ## Lessons Learned
 
 ### 1. Sequence Matters More Than Individual Events  
-Many of the observed actions—PowerShell usage, scheduled tasks, shortcuts, and connectivity checks—are common in enterprise environments. Evaluated in isolation, none were conclusively malicious. Only by reconstructing the **full timeline** did the coordinated intent become apparent. Effective threat hunting depends on understanding how events relate over time, not just what occurred.
+Many of the observed actions such as PowerShell usage, scheduled tasks, shortcuts, and connectivity checks are common in enterprise environments. Evaluated in isolation, none were conclusively malicious. Only by reconstructing the **full timeline** did the coordinated intent become apparent. Effective threat hunting depends on understanding how events relate over time, not just what occurred.
 
 ### 2. Legitimate Tools Can Enable Malicious Outcomes  
 The actor relied almost entirely on native Windows utilities and PowerShell rather than custom malware. This underscores the challenge defenders face in distinguishing malicious activity from administrative behavior and reinforces the importance of behavioral baselining and context-aware analysis.
