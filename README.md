@@ -117,7 +117,7 @@ cmd.exe /c wmic logicaldisk get name,freespace,size
 The actor confirmed outbound network connections by connecting to well known endpoints to avoid detection. In connecting with endpoints, the actor was preparing for successful exfiltration of data.
 ```kql
 DeviceProcessEvents
- where TimeGenerated between (datetime(2025-10-01) .. datetime(2025-10-15))
+| where TimeGenerated between (datetime(2025-10-01) .. datetime(2025-10-15))
 | where DeviceName == "gab-intern-vm"
 | where ProcessCommandLine has_any ("ping","nslookup","ipconfig","tracert","pathping","Test-NetConnection","Resolve-DnsName","Get-DnsClient","netsh","route","arp")
 | project TimeGenerated, AccountName, FileName,InitiatingProcessFileName, InitiatingProcessCommandLine,ProcessCommandLine, InitiatingProcessParentFileName
