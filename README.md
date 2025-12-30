@@ -200,11 +200,83 @@ DeviceFileEvents
 | sort by TimeGenerated asc
 | project TimeGenerated, FileName, FolderPath, InitiatingProcessFileName
 ```
-This query led me to the artifact: ReconArtifact.zip
-
+This query led me to the artifact: 
+```kql
+ReconArtifact.zip
+```
 The creation of a recon-themed archive marks a clear transition from discovery to pre-exfiltration preparation. This behavior should be correlated back to earlier reconnaissance to fully understand what data was deemed valuable.
+
 
 ## Outbound Transfer Attempt
 Even failed or incomplete transfer attempts provide valuable insight into attacker intent. At this stage, the focus shifts from preparation to execution, where the actor tests whether data can be moved beyond the endpoint.
 
-Query Used
+Query Used:
+```kql
+DeviceNetworkEvents
+| where TimeGenerated between (datetime(2025-10-01) .. datetime(2025-10-15))
+| where DeviceName == "gab-intern-vm"
+| sort by TimeGenerated asc
+| project TimeGenerated, RemoteIP, ActionType, RemoteUrl,
+          InitiatingProcessAccountName, InitiatingProcessCommandLine,
+          InitiatingProcessFileName
+```
+The remote IP the attacker attempted to send information to was 100.29.147.161. Regardless of success or failure, this outbound attempt demonstrates intent to move data off-host. Such events are critical for understanding possible egress paths and identifying control points for prevention.
+
+## Persistence via Scheduled Task
+
+Persistence mechanisms allow an actor to survive beyond a single session. Scheduled tasks are particularly attractive because they are native to Windows, easy to configure, and can appear legitimate if named carefully.
+
+Query Used:
+```kql
+DeviceProcessEvents
+| where TimeGenerated between (datetime(2025-10-01) .. datetime(2025-10-15))
+| where DeviceName == "gab-intern-vm"
+| where FileName == "schtasks.exe"
+| project TimeGenerated, ProcessCommandLine, InitiatingProcessFileName
+| sort by TimeGenerated asc
+```
+The task name found was SupportToolUpdater.ps1. The task name mimics legitimate administrative tooling, reinforcing the broader theme of masquerading. Logon-triggered execution ensures the actor’s tooling persists across sessions without requiring additional user interaction.
+
+## Planted Narrative Artifact
+Rather than relying solely on technical stealth, the actor attempted human-level misdirection by leaving behind artifacts that framed the activity as legitimate support work. These artifacts are designed to influence interpretation during casual review. Shortcuts (.lnk files) are particularly effective because they are user-visible and commonly interacted with.
+
+Query Used:
+```kql
+DeviceFileEvents
+| where TimeGenerated between (datetime(2025-10-01) .. datetime(2025-10-15))
+| where DeviceName == "gab-intern-vm"
+| where (FileName contains ".lnk")
+```
+The narrative artifact found was titled SupportChat_log.lnk. This shortcut reinforces the illusion of a legitimate support session. When viewed in isolation, it appears benign; when viewed in sequence, it serves as a cover story for prior suspicious activity.
+## Executive Summary
+
+This threat hunt reconstructed a simulated incident involving the misuse of a purported support tool on an intern-operated Windows endpoint. While individual actions initially appeared consistent with legitimate administrative or troubleshooting behavior, correlating telemetry across process execution, file system activity, and network events revealed a deliberate and methodical attack sequence.
+
+The investigation identified a clear progression: execution of an unsigned PowerShell script from a user-controlled directory, reconnaissance of host context and privileges, staged indicators of security tampering, opportunistic data collection, artifact consolidation, outbound connectivity validation, simulated transfer attempts, and persistence through scheduled task creation. The activity concluded with the placement of narrative artifacts designed to frame the behavior as a routine support interaction.
+
+This hunt highlights how attackers can rely on plausibility, sequence, and human misdirection—rather than overt exploitation—to blend into enterprise environments. The findings reinforce the importance of timeline-based threat hunting and contextual analysis when evaluating seemingly benign activity.
+
+---
+
+## Lessons Learned
+
+### 1. Sequence Matters More Than Individual Events  
+Many of the observed actions—PowerShell usage, scheduled tasks, shortcuts, and connectivity checks—are common in enterprise environments. Evaluated in isolation, none were conclusively malicious. Only by reconstructing the **full timeline** did the coordinated intent become apparent. Effective threat hunting depends on understanding how events relate over time, not just what occurred.
+
+### 2. Legitimate Tools Can Enable Malicious Outcomes  
+The actor relied almost entirely on native Windows utilities and PowerShell rather than custom malware. This underscores the challenge defenders face in distinguishing malicious activity from administrative behavior and reinforces the importance of behavioral baselining and context-aware analysis.
+
+### 3. Artifacts Can Signal Intent Without Causing Impact  
+Several findings—such as the Defender tamper artifact—were staged rather than functional. These artifacts did not change system configuration but served as **signals of intent** and misdirection. Treating intent as a meaningful hunting signal is critical, even when no direct impact is observed.
+
+### 4. Narrative Misdirection Is a Real Technique  
+The placement of support-themed shortcuts and logs demonstrates how attackers may attempt to influence human interpretation. Threat hunts should account for **social engineering artifacts**, not just technical indicators, when reconstructing activity.
+
+### 5. Baseline Noise Must Be Understood, Not Ignored  
+System-generated events such as connectivity checks (`msftconnecttest.com`) and scheduled background tasks are often dismissed as noise. However, their **timing and context** can make them meaningful. Understanding baseline behavior is essential to recognizing when it is being intentionally leveraged.
+
+### 6. Clear Flag Definitions Matter in Simulated Hunts  
+This exercise also highlighted the importance of precise definitions in structured hunts. Ambiguity around expected formats or interpretations can obscure valid analysis. In real-world investigations, documenting assumptions and definitions up front helps prevent misalignment during incident response.
+
+---
+
