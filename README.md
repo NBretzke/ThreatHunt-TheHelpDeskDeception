@@ -33,7 +33,7 @@ DeviceProcessEvents
 | order by TimeGenerated asc
 ```
 ## Result
-- User: g4bri3lintern
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/Pre-HuntFlag.png">
 - Device: gab-intern-vm
 
 This device became the primary focus of the hunt. It had a high amount of activity in the first half of October and featured "intern" in the device and account name.
@@ -56,6 +56,7 @@ The earliest suspicious execution observed was:
 ```kql
 powershell.exe -ExecutionPolicy Bypass -File C:\Users\g4bri3lintern\Downloads\SupportTool.ps1
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag1.png">
 This command strongly suggests intentional user-driven execution. The use of ExecutionPolicy Bypass combined with a script launched from a Downloads folder is a well-known red flag, frequently associated with initial access or the execution of unsanctioned tooling.
 
 ## Simulated Security Tampering Indicator
@@ -71,6 +72,7 @@ This query surfaced a PowerShell command that wrote a Defender-related instructi
 ```kql
 Write-Output 'Set-MpPreference -DisableRealtimeMonitoring $true'| Out-File 'C:\Users\Public\DefenderTamperArtifact.txt'
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag2.png">
 Importantly, this action did not actually modify Defender configuration. Instead, it created a tangible artifact implying tampering. From a hunting perspective, this represents intent, not effect. Such staged indicators are commonly used to mislead analysts or create plausible explanations during later review.
 
 ## Shortcut-Based Misdirection Artifact
@@ -82,6 +84,7 @@ DeviceFileEvents
 | where InitiatingProcessFileName == "explorer.exe"
 | summarize by FileName, FolderPath
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag3.png">
 The presence of DefenderTamperArtifact.lnk is significant. Shortcuts are user-facing and are often opened via Explorer, suggesting deliberate placement for visibility. While the underlying text file contained no functional tampering, the shortcut served to reinforce a false narrative that Defender settings had been altered.
 
 ## Clipboard Reconnaissance
@@ -96,6 +99,7 @@ This query revealed the execution of:
 ```kql
 powershell.exe -NoProfile -Sta -Command "try { Get-Clipboard | Out-Null } catch { }"
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag4.png">
 This command silently checks the clipboard without logging or storing its contents. Such behavior is characteristic of attackers looking for easy wins—credentials, tokens, or copied data—before committing to broader reconnaissance or collection efforts.
 
 ## Host & Storage Enumeration
@@ -112,9 +116,10 @@ For example:
 ```kql
 cmd.exe /c wmic logicaldisk get name,freespace,size
 ```
-
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag5.png">
 ## Network Reachability & Data Staging
 The actor confirmed outbound network connections by connecting to well known endpoints to avoid detection. In connecting with endpoints, the actor was preparing for successful exfiltration of data.
+
 ```kql
 DeviceProcessEvents
 | where TimeGenerated between (datetime(2025-10-01) .. datetime(2025-10-15))
@@ -127,17 +132,23 @@ This query genereated logs of endpoints connections that all had the same parent
 ```kql
 RuntimeBroker.exe
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag6.png">
+
 ## Enumerate Active Sessions
 The actor enumerated active sessions on nearby hosts to keep secrecy. Using the following query was helpful in understanding how the attacker was methodically approaching their next step.
+
 ```kql
 DeviceProcessEvents
 | where TimeGenerated between (datetime(2025-10-01) .. datetime(2025-10-15))
 | where DeviceName == "gab-intern-vm"
 | where ProcessCommandLine has_any ("quser","query user","qwinsta")
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag7.png">
 The earliest unique process ID of enumeration was "2533274790397065". This is helpful in correlating these events with other endpoint databases. 
 
+
 ## Persistence Mechanism
+
 To ensure continued access, the actor established persistence using a scheduled task.
 ```kql
 DeviceProcessEvents
@@ -149,9 +160,11 @@ This revealed how the attacker created persistent tasks using:
 ```kql
 TaskList.exe
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag8.png">
 Scheduled execution on logon ensures the tooling survives beyond a single session, a common persistence technique that blends easily into administrative activity if naming is carefully chosen.
 
 ## Privilege Enumeration
+
 Detect attempts to understand privileges available to the current actor.
 After establishing an initial foothold and conducting lightweight reconnaissance, the next logical step for an actor is to determine **what level of access they currently possess**. Privilege enumeration informs whether further action can be taken immediately or whether elevation is required.
 In Windows environments, this often takes the form of built-in commands that enumerate group membership, token privileges, and local administrative rights. These commands are low-noise, widely available, and commonly used by both administrators and attackers.
@@ -169,6 +182,7 @@ This enumeration began at the timestamp below:
 ```kql
 2025-10-09T12:52:14.3646503Z
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag9.png">
 This activity demonstrates deliberate privilege awareness. Rather than immediately attempting elevation, the actor first assessed their current access level. This behavior aligns with controlled, methodical post-access decision-making rather than opportunistic exploitation.
 
 ## Outbound Reachability Validation
@@ -183,6 +197,7 @@ DeviceNetworkEvents
 | where Timestamp between (datetime(2025-10-01)..datetime(2025-10-15))
 | where InitiatingProcessFileName in ("powershell.exe","cmd.exe")
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag10.png">
 The domain contacted was: www.msftconnecttest.com
 
 msftconnecttest.com is a Windows Network Connectivity Status Indicator (NCSI) endpoint. While benign in isolation, its appearance within this sequence strongly suggests intentional egress validation prior to staging or transfer activity. This step confirms both access and readiness for potential data movement.
@@ -204,6 +219,7 @@ This query led me to the artifact:
 ```kql
 ReconArtifact.zip
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag11.png">
 The creation of a recon-themed archive marks a clear transition from discovery to pre-exfiltration preparation. This behavior should be correlated back to earlier reconnaissance to fully understand what data was deemed valuable.
 
 
@@ -220,6 +236,7 @@ DeviceNetworkEvents
           InitiatingProcessAccountName, InitiatingProcessCommandLine,
           InitiatingProcessFileName
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag12.png">
 The remote IP the attacker attempted to send information to was 100.29.147.161. Regardless of success or failure, this outbound attempt demonstrates intent to move data off-host. Such events are critical for understanding possible egress paths and identifying control points for prevention.
 
 ## Persistence via Scheduled Task
@@ -236,6 +253,7 @@ DeviceProcessEvents
 | sort by TimeGenerated asc
 ```
 The task name found was SupportToolUpdater.ps1. The task name mimics legitimate administrative tooling, reinforcing the broader theme of masquerading. Logon-triggered execution ensures the actor’s tooling persists across sessions without requiring additional user interaction.
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag13.png">
 
 ## Planted Narrative Artifact
 Rather than relying solely on technical stealth, the actor attempted human-level misdirection by leaving behind artifacts that framed the activity as legitimate support work. These artifacts are designed to influence interpretation during casual review. Shortcuts (.lnk files) are particularly effective because they are user-visible and commonly interacted with.
@@ -247,6 +265,7 @@ DeviceFileEvents
 | where DeviceName == "gab-intern-vm"
 | where (FileName contains ".lnk")
 ```
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag15.png">
 The narrative artifact found was titled SupportChat_log.lnk. This shortcut reinforces the illusion of a legitimate support session. When viewed in isolation, it appears benign; when viewed in sequence, it serves as a cover story for prior suspicious activity.
 ## Executive Summary
 
@@ -279,4 +298,3 @@ System-generated events such as connectivity checks (`msftconnecttest.com`) and 
 This exercise also highlighted the importance of precise definitions in structured hunts. Ambiguity around expected formats or interpretations can obscure valid analysis. In real-world investigations, documenting assumptions and definitions up front helps prevent misalignment during incident response.
 
 ---
-
