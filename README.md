@@ -265,7 +265,7 @@ DeviceFileEvents
 | where DeviceName == "gab-intern-vm"
 | where (FileName contains ".lnk")
 ```
-<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/flag15.png">
+<img width="1000" src="https://github.com/NBretzke/ThreatHunt-TheHelpDeskDeception/blob/main/lastflag.png">
 The narrative artifact found was titled SupportChat_log.lnk. This shortcut reinforces the illusion of a legitimate support session. When viewed in isolation, it appears benign; when viewed in sequence, it serves as a cover story for prior suspicious activity.
 ## Executive Summary
 
